@@ -1,0 +1,123 @@
+import sys
+
+class LiChaoTree:
+    def __init__(self, x_min, x_max, maximize=True):
+        self.x_min = x_min
+        self.x_max = x_max
+        self.maximize = maximize
+        
+        if self.maximize:
+            self.identity_line = (0, -float('inf'))
+            self.better = lambda a, b: a > b
+        else:
+            self.identity_line = (0, float('inf'))
+            self.better = lambda a, b: a < b
+            
+        self.tree = {}
+
+    def _eval(self, line, x):
+        m, c = line
+        return m * x + c
+
+    def _add_line_recursive(self, new_line, node_idx, l, r):
+        if not new_line: return
+        
+        old_line = self.tree.get(node_idx, self.identity_line)
+
+        mid = l + (r - l) // 2
+        
+        new_is_better_at_mid = self.better(self._eval(new_line, mid), self._eval(old_line, mid))
+        if new_is_better_at_mid:
+            self.tree[node_idx], new_line = new_line, old_line
+        
+        if l == r: return
+            
+        old_line = self.tree.get(node_idx) # The line now stored at this node
+        new_is_better_at_l = self.better(self._eval(new_line, l), self._eval(old_line, l))
+
+        if new_is_better_at_l:
+            self._add_line_recursive(new_line, 2 * node_idx, l, mid)
+        else:
+            # Check if the new line can be better on the right
+            new_is_better_at_r = self.better(self._eval(new_line, r), self._eval(old_line, r))
+            if new_is_better_at_r:
+                self._add_line_recursive(new_line, 2 * node_idx + 1, mid + 1, r)
+    
+    def add_line(self, line):
+        m, c = line
+        self._add_line_recursive((m, c), 1, self.x_min, self.x_max)
+    
+    def _query_recursive(self, x, node_idx, l, r):
+        best_line = self.tree.get(node_idx, self.identity_line)
+        best_val = self._eval(best_line, x)
+        
+        if l == r:
+            return best_val
+            
+        mid = l + (r - l) // 2
+        
+        if x <= mid:
+            val_from_child = self._query_recursive(x, 2 * node_idx, l, mid)
+        else:
+            val_from_child = self._query_recursive(x, 2 * node_idx + 1, mid + 1, r)
+        
+        if self.better(val_from_child, best_val):
+            return val_from_child
+        return best_val
+
+    def query(self, x):
+        if not (self.x_min <= x <= self.x_max):
+            raise ValueError("Query x is outside the defined range of the tree.")
+        return self._query_recursive(x, 1, self.x_min, self.x_max)
+
+
+if __name__ == '__main__':
+    # Set recursion limit for deep trees on large ranges
+    sys.setrecursionlimit(200000)
+
+    print("--- Maximization Li Chao Tree Example ---")
+    
+    # Initialize the tree for a specific coordinate range
+    lct_max = LiChaoTree(x_min=-100, x_max=100, maximize=True)
+    
+    # Add some lines. A line is represented by a tuple (m, c) for y = mx + c
+    print("Adding lines:")
+    lines_to_add = [
+        (2, 5),      # y = 2x + 5
+        (-1, 30),    # y = -x + 30
+        (0, 20)      # y = 20
+    ]
+    for line in lines_to_add:
+        print(f"  y = {line[0]}x + {line[1]}")
+        lct_max.add_line(line)
+        
+    print("\n--- Performing Queries ---")
+    queries = [-50, 0, 10, 25]
+    for x in queries:
+        result = lct_max.query(x)
+        
+        # Manual verification
+        y1 = 2 * x + 5
+        y2 = -1 * x + 30
+        y3 = 0 * x + 20
+        expected = max(y1, y2, y3)
+        
+        print(f"Query at x = {x:3}: Max y = {result:6.1f} (Expected: {expected:6.1f})")
+
+    # --- Minimization Example ---
+    print("\n--- Minimization Li Chao Tree Example ---")
+    lct_min = LiChaoTree(x_min=-100, x_max=100, maximize=False)
+    for line in lines_to_add:
+        lct_min.add_line(line)
+
+    print("\n--- Performing Queries ---")
+    for x in queries:
+        result = lct_min.query(x)
+        
+        # Manual verification
+        y1 = 2 * x + 5
+        y2 = -1 * x + 30
+        y3 = 0 * x + 20
+        expected = min(y1, y2, y3)
+        
+        print(f"Query at x = {x:3}: Min y = {result:6.1f} (Expected: {expected:6.1f})")
